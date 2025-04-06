@@ -8,13 +8,13 @@ WORKDIR /app
 COPY requirements.txt .
 
 # Install dependencies
-RUN pip install -r requirements.txt
+RUN pip3.9 install -r requirements.txt
 
 # Copy the entire application
 COPY . .
 
 # Expose the port Flask will listen on
-EXPOSE 5000
+EXPOSE 8000
 
 # Run the Flask application
-CMD ["python", "app.py"]
+CMD ["python3.9", "app.py"]

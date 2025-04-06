@@ -26,10 +26,10 @@ from sklearn.metrics import classification_report, confusion_matrix, roc_curve, 
 # --- 1. Define Data Directories and Parameters ---
 train_dir = "skin-cancer-images/train"  # Replace with your actual path
 test_dir = "skin-cancer-images/test"  # Replace with your actual path
-image_size = (224, 224)  # Increased image size for better detail
+image_size = (128, 128)  # Reduced image size to speed up processing
 batch_size = 32
 epochs = 50
-class_names = ["benign", "malignant"]  # Explicit class names
+class_names = ["benign", "malignant"]
 
 # --- 2. Set Global Seeds for Reproducibility ---
 def set_seeds(seed=42):
@@ -45,11 +45,9 @@ set_seeds()
 # --- 3. Data Generators with Augmentation for Training ---
 train_datagen = ImageDataGenerator(
     rescale=1.0 / 255.0,
-    rotation_range=30,
-    width_shift_range=0.15,
-    height_shift_range=0.15,
-    shear_range=0.2,
-    zoom_range=0.2,
+    rotation_range=20,  # Reduced augmentation
+    width_shift_range=0.1,
+    height_shift_range=0.1,
     horizontal_flip=True,
     vertical_flip=True,
     fill_mode="nearest",
@@ -89,64 +87,39 @@ test_generator = test_datagen.flow_from_directory(
     classes=class_names,
 )
 
-# --- 5. Model Building (Convolutional -> Pooling -> Fully Connected) ---
+# --- 5. Model Building (Smaller CNN) ---
 model = Sequential(
     [
-        # Input Layer
-        tf.keras.layers.Input(shape=(image_size[0], image_size[1], 3)),  # Explicit input shape
-
-        # Convolutional Layers
-        Conv2D(32, (3, 3), activation="relu", padding='same'),
-        BatchNormalization(),
-        Conv2D(32, (3, 3), activation="relu", padding='same'),
-        BatchNormalization(),
+        tf.keras.layers.Input(shape=(image_size[0], image_size[1], 3)),
+        Conv2D(16, (3, 3), activation="relu", padding='same'),  # Reduced filters
         MaxPooling2D((2, 2)),
-        Dropout(0.25),
-
-        Conv2D(64, (3, 3), activation="relu", padding='same'),
-        BatchNormalization(),
-        Conv2D(64, (3, 3), activation="relu", padding='same'),
-        BatchNormalization(),
+        Conv2D(32, (3, 3), activation="relu", padding='same'),  # Reduced filters
         MaxPooling2D((2, 2)),
-        Dropout(0.25),
-
-        Conv2D(128, (3, 3), activation="relu", padding='same'),
-        BatchNormalization(),
-        Conv2D(128, (3, 3), activation="relu", padding='same'),
-        BatchNormalization(),
+        Conv2D(64, (3, 3), activation="relu", padding='same'),  # Reduced filters
         MaxPooling2D((2, 2)),
-        Dropout(0.3),
-
-        # Fully Connected Layers
         Flatten(),
-        Dense(512, activation="relu"),
-        BatchNormalization(),
-        Dropout(0.5),
-        Dense(128, activation="relu"),
-        BatchNormalization(),
-        Dropout(0.5),
-
-        # Output Layer
-        Dense(1, activation="sigmoid"),  # Binary classification (malignant or benign)
+        Dense(128, activation="relu"),  # Reduced units
+        Dropout(0.3),  # Reduced dropout
+        Dense(1, activation="sigmoid"),
     ]
 )
 
 # --- 6. Compile the Model ---
 model.compile(
-    optimizer=Adam(learning_rate=0.00005),
+    optimizer=Adam(learning_rate=0.0001),
     loss="binary_crossentropy",
     metrics=["accuracy"],
 )
 
 # --- 7. Callbacks for Training ---
 early_stopping = EarlyStopping(
-    monitor="val_loss", patience=15, restore_best_weights=True
+    monitor="val_loss", patience=10, restore_best_weights=True  # Adjusted patience
 )
 model_checkpoint = ModelCheckpoint(
     "best_model.h5", monitor="val_accuracy", save_best_only=True
 )
 reduce_lr = ReduceLROnPlateau(
-    monitor="val_loss", factor=0.2, patience=8, min_lr=1e-6
+    monitor="val_loss", factor=0.2, patience=5, min_lr=1e-6
 )
 
 callbacks = [early_stopping, model_checkpoint, reduce_lr]
@@ -171,14 +144,15 @@ predictions = model.predict(test_generator, steps=test_steps, verbose=1)
 predicted_probabilities = predictions.flatten()
 predicted_classes = (predictions > 0.5).astype(int).flatten()
 true_classes = test_generator.classes
+class_labels = list(test_generator.class_indices.keys())
 
 # --- 10. Print Detailed Evaluation Metrics and Confusion Matrix ---
 print("Classification Report (Test Data):")
-print(classification_report(true_classes, predicted_classes, target_names=class_names))
+print(classification_report(true_classes, predicted_classes, target_names=class_labels))
 
 cm = confusion_matrix(true_classes, predicted_classes)
 plt.figure(figsize=(8, 8))
-sns.heatmap(cm, annot=True, fmt="d", cmap="Blues", xticklabels=class_names, yticklabels=class_names)
+sns.heatmap(cm, annot=True, fmt="d", cmap="Blues", xticklabels=class_labels, yticklabels=class_labels)
 plt.xlabel("Predicted Label")
 plt.ylabel("True Label")
 plt.title("Confusion Matrix (Test Data)")

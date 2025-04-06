@@ -3,64 +3,114 @@ from tensorflow.keras.preprocessing import image
 from tensorflow.keras.models import load_model
 import numpy as np
 import matplotlib.pyplot as plt
-from sklearn.metrics import roc_curve, auc
+import cv2  # Optional, but often useful for image handling
 
 def load_and_preprocess_image(image_path, target_size):
-    img = image.load_img(image_path, target_size=target_size)
-    img_array = image.img_to_array(img)
-    img_array = np.expand_dims(img_array, axis=0)
-    img_array = img_array / 255.0  # Rescale pixel values (if needed)
-    return img_array
+    """Loads, resizes, and preprocesses a single image for prediction.
 
-model_path = 'skin_cancer_model.h5'  # Replace with your model path
-model = load_model(model_path)
+    Args:
+        image_path: Path to the image file.
+        target_size: Tuple (height, width) specifying the model's expected input size.
 
-image_path = 'skin-cancer-images/test/malignant/44.jpg'  # Replace with a test image path
-target_size = (224, 224)  # Must match your training image size
+    Returns:
+        A preprocessed NumPy array representing the image, or None if there's an error.
+    """
+    try:
+        # Using cv2 for more robust image loading
+        img = cv2.imread(image_path)
+        if img is None:
+            raise FileNotFoundError(f"Image not found or cannot be read: {image_path}")
 
-processed_image = load_and_preprocess_image(image_path, target_size)
-print("Processed Image Shape:", processed_image.shape)  # Debugging
-predictions = model.predict(processed_image)
+        img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)  # Convert BGR to RGB (if needed)
+        img = cv2.resize(img, target_size)
+        img_array = np.array(img)
+        img_array = np.expand_dims(img_array, axis=0)  # Add batch dimension
+        img_array = img_array / 255.0  # Rescale pixel values (if you did this during training)
+        return img_array
 
-print("Raw Predictions:", predictions)  # Debugging
+    except FileNotFoundError as e:
+        print(f"Error: {e}")
+        return None
+    except Exception as e:
+        print(f"An error occurred while loading/preprocessing the image: {e}")
+        return None
 
-# --- Simple Classification (Adjust Threshold as Needed) ---
-if predictions[0][0] > 0.5:
-    print("Prediction: Malignant")
-else:
-    print("Prediction: Benign")
 
-# --- More Robust Evaluation (for a set of test images) ---
-# (You'll need to adapt this if you're testing on a single image)
-# test_images_paths = ['path/to/test1.jpg', 'path/to/test2.jpg', ...]  # List of test image paths
-# true_labels = [1, 0, ...]  # 1 for malignant, 0 for benign (example)
-#
-# predicted_probabilities = []
-# for img_path in test_images_paths:
-#     processed_img = load_and_preprocess_image(img_path, target_size)
-#     pred = model.predict(processed_img)
-#     predicted_probabilities.append(pred[0][0])
-#
-# # --- ROC Curve (for binary classification) ---
-# fpr, tpr, thresholds = roc_curve(true_labels, predicted_probabilities)
-# roc_auc = auc(fpr, tpr)
-#
-# plt.figure()
-# plt.plot(fpr, tpr, color='darkorange', lw=2, label='ROC curve (area = %0.2f)' % roc_auc)
-# plt.plot([0, 1], [0, 1], color='navy', lw=2, linestyle='--')
-# plt.xlim([0.0, 1.0])
-# plt.ylim([0.0, 1.05])
-# plt.xlabel('False Positive Rate')
-# plt.ylabel('True Positive Rate')
-# plt.title('Receiver Operating Characteristic')
-# plt.legend(loc="lower right")
-# plt.show()
-#
-# # --- Choose a Threshold Based on ROC Curve (Example) ---
-# chosen_threshold = 0.4  # Replace with your chosen threshold
-# predicted_classes = [1 if prob > chosen_threshold else 0 for prob in predicted_probabilities]
-#
-# print(classification_report(true_labels, predicted_classes))
-# cm = confusion_matrix(true_labels, predicted_classes)
-# sns.heatmap(cm, annot=True, fmt='d', cmap='Blues')
-# plt.show()
+def predict_single_image(model_path, image_path, target_size, class_names):
+    """Loads a trained model and predicts the class of a single image.
+
+    Args:
+        model_path: Path to the saved model file (.h5 or .keras).
+        image_path: Path to the image file to predict.
+        target_size: Tuple (height, width) specifying the model's expected input size.
+        class_names: List of class names (e.g., ["benign", "malignant"]).
+
+    Returns:
+        A dictionary containing the prediction results, or None if there's an error.
+    """
+
+    try:
+        model = load_model(model_path)
+    except FileNotFoundError as e:
+        print(f"Error: Model file not found: {e}")
+        return None
+    except Exception as e:
+        print(f"An error occurred while loading the model: {e}")
+        return None
+
+    processed_image = load_and_preprocess_image(image_path, target_size)
+
+    if processed_image is None:
+        return None
+
+    prediction = model.predict(processed_image)
+    probability_malignant = float(prediction[0][0])  # Probability of being malignant
+    probability_benign = 1.0 - probability_malignant
+
+    results = {
+        class_names[0]: probability_benign,
+        class_names[1]: probability_malignant,
+    }
+
+    return results
+
+
+if __name__ == "__main__":
+    # --- Example Usage ---
+    model_path = "skin_cancer_model.h5"  # Replace with the actual path to your saved model
+    image_path = "skin-cancer-images/test/benign/18.jpg"  # Replace with the path to your test image
+    target_size = (128, 128)  # Must match your training image size
+    class_names = ["benign", "malignant"]  # Ensure this matches your training order
+
+    # --- Load and Preprocess Image ---
+    processed_image = load_and_preprocess_image(image_path, target_size)
+
+    if processed_image is not None:
+        # --- Make Prediction ---
+        prediction_results = predict_single_image(model_path, image_path, target_size, class_names)
+
+        if prediction_results:
+            print("Prediction Results:")
+            for class_name, probability in prediction_results.items():
+                print(f"  {class_name}: {probability:.4f}")
+
+            # --- Simple Classification (Adjust Threshold as Needed) ---
+            predicted_class = max(prediction_results, key=prediction_results.get)
+            print(f"Predicted Class: {predicted_class}")
+
+            # --- Visualize (Optional) ---
+            try:
+                img = cv2.imread(image_path)
+                img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+                plt.imshow(img)
+                plt.title(f"Prediction: {predicted_class}")
+                plt.axis("off")
+                plt.show()
+            except Exception as e:
+                print(f"Error displaying image: {e}")
+
+        else:
+            print("Prediction failed.")
+
+    else:
+        print("Image processing failed.")

@@ -1,0 +1,7 @@
+numpy==1.22.0  # Or a more recent 1.x version
+pandas==1.5.0   # Or a more recent 1.x version
+matplotlib==3.5.0 # Or a compatible version
+seaborn==0.11.2 # Or a compatible version
+scikit-learn==1.0.2 # Or a compatible version
+tensorflow==2.7.0 # Or the version you're using (check with tf.__version__)
+Pillow==9.0.0   # Or a compatible version

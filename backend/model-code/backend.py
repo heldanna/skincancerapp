@@ -23,7 +23,6 @@ from tensorflow.keras.callbacks import (
 )
 from sklearn.metrics import classification_report, confusion_matrix, roc_curve, auc
 
-# --- 1. Define Data Directories and Parameters ---
 train_dir = "skin-cancer-images/train"  # Replace with your actual path
 test_dir = "skin-cancer-images/test"  # Replace with your actual path
 image_size = (128, 128)  # Reduced image size to speed up processing
@@ -31,7 +30,6 @@ batch_size = 32
 epochs = 50
 class_names = ["benign", "malignant"]
 
-# --- 2. Set Global Seeds for Reproducibility ---
 def set_seeds(seed=42):
     os.environ["PYTHONHASHSEED"] = str(seed)
     np.random.seed(seed)
@@ -42,7 +40,6 @@ def set_seeds(seed=42):
 
 set_seeds()
 
-# --- 3. Data Generators with Augmentation for Training ---
 train_datagen = ImageDataGenerator(
     rescale=1.0 / 255.0,
     rotation_range=20,  # Reduced augmentation
@@ -74,7 +71,6 @@ validation_generator = train_datagen.flow_from_directory(
     classes=class_names,
 )
 
-# --- 4. Data Generator for Test Data (No Augmentation) ---
 test_datagen = ImageDataGenerator(rescale=1.0 / 255.0)
 
 test_generator = test_datagen.flow_from_directory(
@@ -87,7 +83,6 @@ test_generator = test_datagen.flow_from_directory(
     classes=class_names,
 )
 
-# --- 5. Model Building (Smaller CNN) ---
 model = Sequential(
     [
         tf.keras.layers.Input(shape=(image_size[0], image_size[1], 3)),
@@ -104,14 +99,12 @@ model = Sequential(
     ]
 )
 
-# --- 6. Compile the Model ---
 model.compile(
     optimizer=Adam(learning_rate=0.0001),
     loss="binary_crossentropy",
     metrics=["accuracy"],
 )
 
-# --- 7. Callbacks for Training ---
 early_stopping = EarlyStopping(
     monitor="val_loss", patience=10, restore_best_weights=True  # Adjusted patience
 )
@@ -124,7 +117,6 @@ reduce_lr = ReduceLROnPlateau(
 
 callbacks = [early_stopping, model_checkpoint, reduce_lr]
 
-# --- 8. Train the Model ---
 history = model.fit(
     train_generator,
     steps_per_epoch=train_generator.samples // batch_size,
@@ -135,7 +127,6 @@ history = model.fit(
     verbose=1,
 )
 
-# --- 9. Evaluate the Model on Test Data ---
 test_steps = test_generator.samples // test_generator.batch_size
 if test_generator.samples % test_generator.batch_size != 0:
     test_steps += 1
@@ -146,7 +137,6 @@ predicted_classes = (predictions > 0.5).astype(int).flatten()
 true_classes = test_generator.classes
 class_labels = list(test_generator.class_indices.keys())
 
-# --- 10. Print Detailed Evaluation Metrics and Confusion Matrix ---
 print("Classification Report (Test Data):")
 print(classification_report(true_classes, predicted_classes, target_names=class_labels))
 
@@ -158,7 +148,6 @@ plt.ylabel("True Label")
 plt.title("Confusion Matrix (Test Data)")
 plt.show()
 
-# --- 11. Plot ROC Curve ---
 fpr, tpr, thresholds = roc_curve(true_classes, predicted_probabilities)
 roc_auc = auc(fpr, tpr)
 
@@ -173,7 +162,6 @@ plt.title("Receiver Operating Characteristic (ROC)")
 plt.legend(loc="lower right")
 plt.show()
 
-# --- 12. Plot Training History ---
 plt.figure(figsize=(12, 5))
 plt.subplot(1, 2, 1)
 plt.plot(history.history["accuracy"], label="Training Accuracy")
@@ -188,6 +176,5 @@ plt.legend()
 plt.title("Loss vs. Epoch")
 plt.show()
 
-# --- 13. Save the Model (Explicitly) ---
 model.save("skin_cancer_model.h5")
 print("Model saved to skin_cancer_model.h5")

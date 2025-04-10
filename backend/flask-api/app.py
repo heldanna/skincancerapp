@@ -7,7 +7,6 @@ from PIL import Image  # For handling images
 
 app = Flask(__name__)
 
-# --- 1. Load the Model (Globally) ---
 # Load the model outside the prediction function for efficiency
 model_path = 'model/skin_cancer_model.h5'  # Adjust path if needed
 try:
@@ -43,11 +42,9 @@ def predict():
         return jsonify({'error': 'No file selected'}), 400
 
     try:
-        # --- 2. Save the Uploaded Image (Temporarily) ---
         image_path = "temp_image.jpg"  # Temporary filename
         img_file.save(image_path)
 
-        # --- 3. Preprocess the Image ---
         target_size = (128, 128)  # Match your model's input size
         processed_image = load_and_preprocess_image(image_path, target_size)
         os.remove(image_path)  # Remove the temporary file
@@ -55,10 +52,8 @@ def predict():
         if processed_image is None:
             return jsonify({'error': 'Failed to process image'}), 400
 
-        # --- 4. Make Prediction ---
         prediction = model.predict(processed_image)
 
-        # --- 5. Interpret the Prediction ---
         if prediction[0][0] > 0.5:
             result = 'Malignant'
         else:
